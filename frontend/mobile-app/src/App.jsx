@@ -948,7 +948,9 @@ function ProviderApp() {
   const { kycDocs, setKycDocs, bookings, updateBookingStatus, businessSettings, setBusinessSettings } = useContext(AuthContext);
   const [tabVal, setTabVal] = useState(0);
 
-  const pendingKyc = kycDocs.length === 0;
+  // KYC verification (Aadhaar card, PAN card, and bank account uploads) is commented out for future development.
+  // For now, providers are authenticated via OTP and have immediate access to the dashboard.
+  const pendingKyc = false; // kycDocs.length === 0;
 
   const handleKycSubmit = (docData) => {
     setKycDocs([docData]);
@@ -985,6 +987,8 @@ function ProviderApp() {
   );
 }
 
+// KYC Onboarding Form (Aadhaar card, PAN card, and Bank account upload details)
+// Commented out for future development. Providers currently log in directly via OTP.
 function ProviderKycSubmit({ onSubmit }) {
   const [aadhaar, setAadhaar] = useState('');
   const [pan, setPan] = useState('');
