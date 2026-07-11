@@ -30,7 +30,7 @@ public class AuditLog extends BaseEntity {
     @Column(name = "new_values", columnDefinition = "jsonb")
     private String newValues;
 
-    @Column(name = "ip_address")
+    @Column(name = "ip_address", columnDefinition = "inet")
     private String ipAddress;
 
     @Column(name = "user_agent")
