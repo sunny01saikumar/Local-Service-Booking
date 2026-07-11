@@ -40,7 +40,7 @@ public class Payment extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "char(3)")
     private String currency = "INR";
 
     @Column(name = "paid_at")
