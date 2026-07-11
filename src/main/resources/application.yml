@@ -4,9 +4,9 @@ spring:
   profiles:
     active: dev
   datasource:
-    url: jdbc:postgresql://localhost:5432/localhub
+    url: jdbc:postgresql://localhost:5432/geoLocation
     username: postgres
-    password: postgres
+    password: Sunny1631
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
