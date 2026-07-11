@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/localhub
+    username: postgres
+    password: postgres
+  jpa:
+    show-sql: true
+logging:
+  level:
+    com.sai.geoLocation: DEBUG
+    org.springframework.security: INFO
