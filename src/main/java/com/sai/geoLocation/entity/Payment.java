@@ -40,7 +40,8 @@ public class Payment extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false, columnDefinition = "char(3)")
+    @Column(nullable = false, length = 3)
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.CHAR)
     private String currency = "INR";
 
     @Column(name = "paid_at")

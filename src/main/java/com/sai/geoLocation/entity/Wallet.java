@@ -14,6 +14,7 @@ public class Wallet extends BaseEntity {
     @Column(name = "user_id")
     private java.util.UUID userId;
     private java.math.BigDecimal balance = java.math.BigDecimal.ZERO;
-    @Column(nullable = false, columnDefinition = "char(3)")
+    @Column(nullable = false, length = 3)
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.CHAR)
     private String currency = "INR";
 }
