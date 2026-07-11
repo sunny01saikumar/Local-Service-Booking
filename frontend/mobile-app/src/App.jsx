@@ -78,6 +78,13 @@ function LocalHubMap({
   }, [center]);
 
   useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    if (!apiKey) {
+      // Gracefully bypass loading script if no API key is set to prevent development popups
+      setGoogleMapsLoaded(false);
+      return;
+    }
+
     if (window.google && window.google.maps) {
       setGoogleMapsLoaded(true);
       return;
@@ -88,7 +95,7 @@ function LocalHubMap({
     if (!script) {
       script = document.createElement("script");
       script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       script.onload = () => setGoogleMapsLoaded(true);
