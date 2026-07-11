@@ -288,12 +288,24 @@ export default function App() {
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCurrentLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            address: "Current Location"
-          });
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          let address = "Active Location";
+
+          try {
+            // Fetch human-readable address from OpenStreetMap Nominatim (Free, no token required)
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`);
+            const data = await res.json();
+            if (data && data.display_name) {
+              const parts = data.display_name.split(',');
+              address = parts.slice(0, 3).join(', ').trim();
+            }
+          } catch (e) {
+            console.warn("Reverse geocoding failed, falling back to coordinates.", e);
+          }
+
+          setCurrentLocation({ lat, lng, address });
         },
         (err) => {
           console.warn("Geolocation prompt blocked or failed, using fallback coordinates.", err);
@@ -652,7 +664,7 @@ function CustomerApp() {
             📍 LocalHub
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip size="small" label={`${currentLocation.lat.toFixed(3)}, ${currentLocation.lng.toFixed(3)}`} color="primary" icon={<LocationOn />} />
+            <Chip size="small" label={currentLocation.address} color="primary" icon={<LocationOn />} />
             <IconButton color="inherit"><Notifications /></IconButton>
           </Box>
         </Toolbar>
