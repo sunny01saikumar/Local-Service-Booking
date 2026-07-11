@@ -10,7 +10,7 @@ import {
 import {
   Search as SearchIcon, AccountCircle, History, AccountBalanceWallet, Work,
   ArrowBack, Send, CheckCircle, LocationOn, Star, Notifications, Chat, Phone,
-  CameraAlt, Share, Help, PersonAdd, LocalActivity, Info, Assessment
+  CameraAlt, Share, Help, PersonAdd, LocalActivity, Info, Assessment, WhatsApp
 } from '@mui/icons-material';
 
 // --- THEME CONFIGURATION ---
@@ -769,9 +769,21 @@ function CustomerHome() {
                     <Chip label={`${s.duration} mins`} size="small" variant="outlined" />
                   </Box>
                 </Box>
-                <Button variant="contained" color="primary" onClick={() => navigate(`/customer/booking/${s.id}`)}>
-                  Book
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <IconButton 
+                    color="success" 
+                    component="a" 
+                    href={`https://wa.me/919876543211?text=${encodeURIComponent(`Hi! I am interested in your service: "${s.name}" on LocalHub. Can you share more details?`)}`}
+                    target="_blank"
+                    sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', '&:hover': { bgcolor: 'rgba(74, 222, 128, 0.3)' } }}
+                    title="Chat on WhatsApp"
+                  >
+                    <WhatsApp />
+                  </IconButton>
+                  <Button variant="contained" color="primary" onClick={() => navigate(`/customer/booking/${s.id}`)}>
+                    Book
+                  </Button>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -982,9 +994,21 @@ function CustomerBookingTracking() {
         </Typography>
         <LinearProgress variant="determinate" value={(statusInfo.step / 6) * 100} color={statusInfo.color} sx={{ mb: 2, height: 8, borderRadius: 4 }} />
         
-        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+        <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
           <Button variant="contained" color="secondary" startIcon={<Chat />} fullWidth onClick={() => setChatOpen(true)}>
-            Chat Provider
+            App Chat
+          </Button>
+          <Button 
+            variant="contained" 
+            color="success" 
+            startIcon={<WhatsApp />} 
+            fullWidth 
+            component="a" 
+            href={`https://wa.me/919876543211?text=${encodeURIComponent(`Hi! I am the customer for booking #${booking.bookingNumber} (${booking.serviceName}). I wanted to check in on the details.`)}`}
+            target="_blank"
+            sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}
+          >
+            WhatsApp
           </Button>
           <Button variant="outlined" color="primary" startIcon={<Phone />} fullWidth component="a" href="tel:+919000000003">
             Call
@@ -1328,15 +1352,27 @@ function ProviderJobs({ bookings, updateStatus }) {
                     </Button>
                   )}
                   {b.status !== 'CREATED' && b.status !== 'PAID' && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      color="secondary"
-                      startIcon={<Chat />}
-                      onClick={() => { setActiveBookingId(b.id); setChatOpen(true); }}
-                    >
-                      Chat
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="secondary"
+                        startIcon={<Chat />}
+                        onClick={() => { setActiveBookingId(b.id); setChatOpen(true); }}
+                        sx={{ flexGrow: 1 }}
+                      >
+                        App Chat
+                      </Button>
+                      <IconButton 
+                        color="success" 
+                        component="a" 
+                        href={`https://wa.me/919000000022?text=${encodeURIComponent(`Hi! I am your service provider from LocalHub for booking #${b.bookingNumber} (${b.serviceName}).`)}`}
+                        target="_blank"
+                        sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', '&:hover': { bgcolor: 'rgba(74, 222, 128, 0.3)' } }}
+                      >
+                        <WhatsApp />
+                      </IconButton>
+                    </Box>
                   )}
                 </Box>
               </CardContent>
