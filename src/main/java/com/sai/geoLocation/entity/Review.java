@@ -31,6 +31,7 @@ public class Review extends BaseEntity {
     private UUID bookingId;
 
     @Column(nullable = false)
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.SMALLINT)
     private Integer rating;
 
     private String title;
