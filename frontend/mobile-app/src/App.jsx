@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ThemeProvider, createTheme, CssBaseline, Box, Container, Paper, Typography,
@@ -61,6 +61,197 @@ const theme = createTheme({
   }
 });
 
+// --- DYNAMIC GEOLOCATION & GOOGLE MAPS WIDGET ---
+function LocalHubMap({ 
+  center = { lat: 18.8000, lng: 79.4500 }, 
+  zoom = 14, 
+  interactive = false, 
+  onPositionChange = null, 
+  markers = [] 
+}) {
+  const mapRef = useRef(null);
+  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const [localMarker, setLocalMarker] = useState(center);
+
+  useEffect(() => {
+    setLocalMarker(center);
+  }, [center]);
+
+  useEffect(() => {
+    if (window.google && window.google.maps) {
+      setGoogleMapsLoaded(true);
+      return;
+    }
+
+    const scriptId = "google-maps-script";
+    let script = document.getElementById(scriptId);
+    if (!script) {
+      script = document.createElement("script");
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setGoogleMapsLoaded(true);
+      script.onerror = () => console.warn("Google Maps SDK failed to load, loading interactive fallback vector map.");
+      document.head.appendChild(script);
+    } else {
+      const interval = setInterval(() => {
+        if (window.google && window.google.maps) {
+          setGoogleMapsLoaded(true);
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!googleMapsLoaded || !mapRef.current) return;
+
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: parseFloat(center.lat), lng: parseFloat(center.lng) },
+        zoom: zoom,
+        styles: [
+          { elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+          { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
+          { elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
+          { featureType: "road", elementType: "geometry", stylers: [{ color: "#334155" }] },
+          { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f172a" }] }
+        ],
+        disableDefaultUI: true,
+        zoomControl: interactive
+      });
+
+      let mainMarker = new window.google.maps.Marker({
+        position: { lat: parseFloat(center.lat), lng: parseFloat(center.lng) },
+        map: map,
+        draggable: interactive,
+        title: "Selected Location",
+        icon: {
+          path: window.google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: "#6366f1",
+          fillOpacity: 1,
+          strokeWeight: 2,
+          strokeColor: "#ffffff"
+        }
+      });
+
+      if (interactive && onPositionChange) {
+        mainMarker.addListener("dragend", () => {
+          const newPos = mainMarker.getPosition();
+          const latVal = newPos.lat();
+          const lngVal = newPos.lng();
+          setLocalMarker({ lat: latVal, lng: lngVal });
+          onPositionChange({ lat: latVal, lng: lngVal });
+        });
+
+        map.addListener("click", (e) => {
+          const latVal = e.latLng.lat();
+          const lngVal = e.latLng.lng();
+          mainMarker.setPosition({ lat: latVal, lng: lngVal });
+          setLocalMarker({ lat: latVal, lng: lngVal });
+          onPositionChange({ lat: latVal, lng: lngVal });
+        });
+      }
+
+      markers.forEach(m => {
+        new window.google.maps.Marker({
+          position: { lat: parseFloat(m.lat), lng: parseFloat(m.lng) },
+          map: map,
+          title: m.title,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 5,
+            fillColor: "#10b981",
+            fillOpacity: 1,
+            strokeWeight: 1,
+            strokeColor: "#ffffff"
+          }
+        });
+      });
+    } catch (e) {
+      console.error("Error creating Google Map instance:", e);
+    }
+  }, [googleMapsLoaded, center, interactive, zoom, markers]);
+
+  if (!googleMapsLoaded) {
+    const handleMockMapClick = (e) => {
+      if (!interactive || !onPositionChange) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const deltaLat = ((rect.height / 2) - y) * 0.0003;
+      const deltaLng = (x - (rect.width / 2)) * 0.0003;
+      const newLat = parseFloat(center.lat) + deltaLat;
+      const newLng = parseFloat(center.lng) + deltaLng;
+      
+      const newPos = { lat: newLat, lng: newLng };
+      setLocalMarker(newPos);
+      onPositionChange(newPos);
+    };
+
+    return (
+      <Paper 
+        onClick={handleMockMapClick}
+        sx={{ 
+          height: '100%', 
+          width: '100%', 
+          position: 'relative', 
+          bgcolor: '#0f172a', 
+          overflow: 'hidden', 
+          cursor: interactive ? 'crosshair' : 'default',
+          border: '1px solid rgba(255,255,255,0.05)'
+        }}
+      >
+        <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+          <line x1="0" y1="30%" x2="100%" y2="50%" stroke="#1e293b" strokeWidth="4" />
+          <line x1="20%" y1="0" x2="80%" y2="100%" stroke="#1e293b" strokeWidth="4" />
+          <line x1="80%" y1="0" x2="10%" y2="100%" stroke="#1e293b" strokeWidth="3" />
+          <circle cx="50%" cy="50%" r="40" fill="none" stroke="#334155" strokeWidth="2" strokeDasharray="5" />
+          
+          <circle cx="50%" cy="50%" r="8" fill="#6366f1" stroke="#ffffff" strokeWidth="2" />
+          
+          {markers.map((m, idx) => {
+            const offsetLat = (m.lat - center.lat) / 0.0003;
+            const offsetLng = (m.lng - center.lng) / 0.0003;
+            const cx = 50 + offsetLng;
+            const cy = 50 - offsetLat;
+            if (cx < 0 || cx > 100 || cy < 0 || cy > 100) return null;
+            return (
+              <g key={idx}>
+                <circle cx={`${cx}%`} cy={`${cy}%`} r="6" fill="#10b981" stroke="#ffffff" strokeWidth="1" />
+                <text x={`${cx + 2}%`} y={`${cy - 2}%`} fill="#34d399" fontSize="10" fontWeight="bold">{m.title}</text>
+              </g>
+            );
+          })}
+        </svg>
+
+        <Box sx={{ position: 'absolute', bottom: 10, left: 10, bgcolor: 'rgba(15,23,42,0.85)', p: 1, borderRadius: 1.5, border: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }}>
+          <Typography variant="caption" color="warning.main" sx={{ display: 'block', fontWeight: 'bold' }}>
+            🗺️ Active Geolocation
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Lat: {parseFloat(localMarker.lat).toFixed(4)} | Lng: {parseFloat(localMarker.lng).toFixed(4)}
+          </Typography>
+        </Box>
+
+        {interactive && (
+          <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bgcolor: 'rgba(99,102,241,0.15)', border: '1px solid #6366f1', p: 1, borderRadius: 1, textAlign: 'center', pointerEvents: 'none' }}>
+            <Typography variant="caption" color="#818cf8" fontWeight="bold">
+              Tap anywhere on map to select coordinates
+            </Typography>
+          </Box>
+        )}
+      </Paper>
+    );
+  }
+
+  return <div ref={mapRef} style={{ width: '100%', height: '100%' }} />;
+}
+
 // --- AUTH CONTEXT & BACKEND SIMULATOR ---
 const AuthContext = createContext(null);
 
@@ -85,6 +276,25 @@ const INITIAL_SERVICES = [
 ];
 
 export default function App() {
+  const [currentLocation, setCurrentLocation] = useState({ lat: 18.8000, lng: 79.4500, address: "Godavarikhani, NTPC" });
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCurrentLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            address: "Current Location"
+          });
+        },
+        (err) => {
+          console.warn("Geolocation prompt blocked or failed, using fallback coordinates.", err);
+        }
+      );
+    }
+  }, []);
+
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('localhub_user');
     return saved ? JSON.parse(saved) : null;
@@ -110,7 +320,9 @@ export default function App() {
       radius: 6,
       openTime: '09:00',
       closeTime: '19:00',
-      isEmergency: true
+      isEmergency: true,
+      latitude: 18.8000,
+      longitude: 79.4500
     };
   });
   const [chats, setChats] = useState(() => {
@@ -250,7 +462,8 @@ export default function App() {
       <AuthContext.Provider value={{
         user, loginUser, logout, bookings, addBooking, updateBookingStatus,
         wallet, topUpWallet, kycDocs, setKycDocs, businessSettings, setBusinessSettings,
-        chats, addChatMessage, categories: INITIAL_CATEGORIES, services: INITIAL_SERVICES
+        chats, addChatMessage, categories: INITIAL_CATEGORIES, services: INITIAL_SERVICES,
+        currentLocation, setCurrentLocation
       }}>
         <BrowserRouter>
           <Routes>
@@ -415,6 +628,7 @@ function Register() {
 function CustomerApp() {
   const [navVal, setNavVal] = useState(0);
   const navigate = useNavigate();
+  const { currentLocation } = useContext(AuthContext);
 
   useEffect(() => {
     if (navVal === 0) navigate('home');
@@ -431,7 +645,7 @@ function CustomerApp() {
             📍 LocalHub
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip size="small" label="Godavarikhani" color="primary" icon={<LocationOn />} />
+            <Chip size="small" label={`${currentLocation.lat.toFixed(3)}, ${currentLocation.lng.toFixed(3)}`} color="primary" icon={<LocationOn />} />
             <IconButton color="inherit"><Notifications /></IconButton>
           </Box>
         </Toolbar>
@@ -462,7 +676,7 @@ function CustomerApp() {
 }
 
 function CustomerHome() {
-  const { categories, services } = useContext(AuthContext);
+  const { categories, services, currentLocation } = useContext(AuthContext);
   const [selectedCat, setSelectedCat] = useState('3'); // Default AC Repair
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
@@ -471,6 +685,13 @@ function CustomerHome() {
     s.categoryId === selectedCat &&
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Dynamically place simulated provider markers near the customer's location
+  const nearbyProviders = [
+    { title: 'Ramesh AC Repairs', lat: currentLocation.lat + 0.004, lng: currentLocation.lng - 0.003 },
+    { title: 'Anita Plumber Services', lat: currentLocation.lat - 0.005, lng: currentLocation.lng + 0.006 },
+    { title: 'Kiran Electrician Solutions', lat: currentLocation.lat + 0.003, lng: currentLocation.lng + 0.002 }
+  ];
 
   return (
     <Container maxWidth="md">
@@ -485,6 +706,11 @@ function CustomerHome() {
           </Typography>
         </CardContent>
       </Card>
+
+      {/* Nearby Map Block */}
+      <Paper className="glass-panel" sx={{ p: 0, height: 200, mb: 3, overflow: 'hidden', border: '1px solid rgba(99,102,241,0.2)' }}>
+        <LocalHubMap center={currentLocation} zoom={14} markers={nearbyProviders} />
+      </Paper>
 
       {/* Search Bar */}
       <TextField
@@ -557,13 +783,14 @@ function CustomerHome() {
 
 function CustomerBookingWizard() {
   const { serviceId } = useParams();
-  const { services, addBooking, wallet } = useContext(AuthContext);
+  const { services, addBooking, wallet, currentLocation } = useContext(AuthContext);
   const navigate = useNavigate();
   const service = services.find(s => s.id === serviceId);
 
   const [date, setDate] = useState('2026-07-12');
   const [time, setTime] = useState('10:30');
-  const [address, setAddress] = useState('Godavarikhani Main Chowk, Landmark: Hanuman Temple');
+  const [bookingLocation, setBookingLocation] = useState(currentLocation);
+  const [address, setAddress] = useState('My Current Location Address');
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('WALLET');
@@ -585,6 +812,8 @@ function CustomerBookingWizard() {
       totalAmount: finalAmount,
       address,
       paymentMethod,
+      latitude: bookingLocation.lat,
+      longitude: bookingLocation.lng,
       providerId: '00000000-0000-0000-0000-000000005001', // assign to Anita Local Mart
       providerName: 'Anita Owner (Basic visit provider)'
     });
@@ -616,13 +845,15 @@ function CustomerBookingWizard() {
         </Grid>
 
         {/* Address */}
-        <TextField label="Service Address in Godavarikhani" multiline rows={2} fullWidth value={address} onChange={e => setAddress(e.target.value)} />
+        <TextField label="Service Location Address" multiline rows={2} fullWidth value={address} onChange={e => setAddress(e.target.value)} />
 
-        {/* Map location coordinate mock */}
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: '#1f2937', textAlign: 'center' }}>
-          <Typography variant="subtitle2" color="warning.main">📍 Hyperlocal GPS Coordinates Registered</Typography>
-          <Typography variant="caption" color="text.secondary">Godavarikhani (18.8000° N, 79.4500° E)</Typography>
-        </Paper>
+        {/* Interactive Location Picker Map */}
+        <Box>
+          <Typography variant="subtitle2" gutterBottom color="text.secondary">📍 Select Location on Map</Typography>
+          <Box sx={{ height: 180, borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <LocalHubMap center={bookingLocation} zoom={15} interactive={true} onPositionChange={setBookingLocation} />
+          </Box>
+        </Box>
 
         {/* Coupon Code input */}
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1223,6 +1454,19 @@ function ProviderSettings({ settings, setSettings }) {
           control={<Switch checked={settings.isEmergency} onChange={e => setSettings({...settings, isEmergency: e.target.checked})} />}
           label="Emergency Service Availability (24/7)"
         />
+
+        {/* Shop Location Selector Map */}
+        <Box>
+          <Typography variant="subtitle2" gutterBottom color="text.secondary">📍 Register Shop Location on Map</Typography>
+          <Box sx={{ height: 180, borderRadius: 2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', mb: 1 }}>
+            <LocalHubMap 
+              center={{ lat: settings.latitude || 18.8000, lng: settings.longitude || 79.4500 }} 
+              zoom={15} 
+              interactive={true} 
+              onPositionChange={(pos) => setSettings({ ...settings, latitude: pos.lat, longitude: pos.lng })} 
+            />
+          </Box>
+        </Box>
 
         <Button variant="outlined" color="error" fullWidth sx={{ mt: 3 }} onClick={() => { logout(); navigate('/'); }}>
           Logout
