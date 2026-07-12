@@ -39,8 +39,19 @@ DELETE FROM coupons;
 -- 8. Purge OTP verification tokens
 DELETE FROM otp_verifications;
 
--- 9. Purge Customer & Partner User Accounts (preserving only Admin User 'admin@localhub.test')
-DELETE FROM user_roles WHERE user_id <> '00000000-0000-0000-0000-000000001001';
-DELETE FROM users WHERE id <> '00000000-0000-0000-0000-000000001001';
+-- 9. Purge All User Accounts & Roles
+DELETE FROM user_roles;
+DELETE FROM wallets;
+DELETE FROM users;
+
+-- 10. Recreate your Custom Administrator Account
+-- Replace 'YourFirstName', 'YourLastName', 'your_email@localhub.test', and '+919000000001' with your own details.
+-- Note: Generate a secure BCrypt password hash for the password_hash column (e.g. using online BCrypt generator).
+INSERT INTO users (id, first_name, last_name, email, phone, password_hash, email_verified, phone_verified) VALUES
+('00000000-0000-0000-0000-000000001001', 'YourFirstName', 'YourLastName', 'your_email@localhub.test', '+919000000001', '$2a$10$change-this-admin-hash-to-yours', TRUE, TRUE);
+
+-- Map the new user to the ADMIN role ('00000000-0000-0000-0000-000000000104')
+INSERT INTO user_roles (user_id, role_id) VALUES
+('00000000-0000-0000-0000-000000001001', '00000000-0000-0000-0000-000000000104');
 
 COMMIT;
