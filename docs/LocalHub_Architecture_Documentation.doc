@@ -1,0 +1,221 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<title>LocalHub Project Architecture Documentation</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333333;
+    margin: 1in;
+}
+h1 {
+    color: #1e3a8a;
+    font-size: 22pt;
+    border-bottom: 2px solid #1e3a8a;
+    padding-bottom: 5px;
+    margin-top: 24pt;
+    margin-bottom: 12pt;
+}
+h2 {
+    color: #2563eb;
+    font-size: 16pt;
+    margin-top: 18pt;
+    margin-bottom: 8pt;
+}
+h3 {
+    color: #1d4ed8;
+    font-size: 13pt;
+    margin-top: 14pt;
+    margin-bottom: 6pt;
+}
+p {
+    font-size: 11pt;
+    margin-bottom: 8pt;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 12pt;
+    margin-bottom: 12pt;
+}
+th {
+    background-color: #1e3a8a;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    text-align: left;
+    font-size: 10pt;
+}
+td {
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 10pt;
+}
+tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+ul, ol {
+    margin-bottom: 10pt;
+    padding-left: 20pt;
+    font-size: 11pt;
+}
+li {
+    margin-bottom: 4pt;
+}
+code {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #f1f5f9;
+    padding: 2px 4px;
+    font-size: 9.5pt;
+}
+pre {
+    background-color: #f8fafc;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 9pt;
+    white-space: pre-wrap;
+    margin-top: 8pt;
+    margin-bottom: 12pt;
+}
+.cover-page {
+    text-align: center;
+    margin-top: 1.5in;
+    page-break-after: always;
+}
+.cover-title {
+    font-size: 32pt;
+    color: #1e3a8a;
+    font-weight: bold;
+    margin-bottom: 15pt;
+    font-family: 'Georgia', serif;
+}
+.cover-subtitle {
+    font-size: 16pt;
+    color: #475569;
+    margin-bottom: 1.5in;
+}
+.cover-meta {
+    font-size: 11pt;
+    color: #64748b;
+    line-height: 2;
+}
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+    <div class="cover-title">LocalHub</div>
+    <div class="cover-subtitle">Hyperlocal Service Booking Platform<br>System Architecture & Design Document</div>
+    <div class="cover-meta">
+        <strong>Author:</strong> Lead Architect Agent<br>
+        <strong>Platform:</strong> Spring Boot 3.x, Java 21, React (MUI), PostgreSQL<br>
+        <strong>Date:</strong> July 2026<br>
+        <strong>Status:</strong> Approved Specification
+    </div>
+</div>
+
+<h1>1. Executive Summary</h1>
+<p>LocalHub is an online marketplace designed to coordinate hyperlocal service transactions between customers and verified partners (plumbers, AC mechanics, TV repair professionals). The system matches requests using real-time geocoding data and enforces service boundary limits calculated dynamically on the server.</p>
+
+<h1>2. System Architecture Design</h1>
+<p>The application follows a decoupled three-tier architecture that segregates presentation layer dependencies from business logic and physical data tables:</p>
+
+<h2>2.1. Presentation Layer (Frontend Clients)</h2>
+<ul>
+    <li><strong>Client Mobile Portal:</strong> Single-page application optimized for mobile viewports, containing client order tracking, Wallet Top-Ups, and live partner mapping widgets.</li>
+    <li><strong>Provider Mobile Portal:</strong> Integrated dashboard allowing partners to toggle status flags, claim active requests, manage localized GPS listings, and upload/publish custom offerings.</li>
+    <li><strong>Admin Control Console:</strong> Desktop dashboard console used by system operators to verify partner documents and monitor platform transactions.</li>
+</ul>
+
+<h2>2.2. Application Logic Tier (REST Web Service)</h2>
+<p>The web service layer is built on Spring Boot 3.x, executing within a Java 21 JVM. It contains security filtering pipelines, REST endpoint routes, and core database service transaction methods.</p>
+
+<h2>2.3. Data Storage Tier</h2>
+<p>Persistent transaction ledgers are stored inside a PostgreSQL relational database. Flyway database migration scripts execute sequentially on application startup to ensure schema consistency.</p>
+
+<h1>3. System Component Mapping</h1>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Module Name</th>
+            <th>Component Scope</th>
+            <th>Primary Classes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Authentication (auth)</strong></td>
+            <td>JWT validation filters, user profile updating, WhatsApp OTP dispatch.</td>
+            <td><code>AuthController</code>, <code>AuthService</code>, <code>JwtService</code></td>
+        </tr>
+        <tr>
+            <td><strong>Business Partner (business)</strong></td>
+            <td>Partner verification statuses, location setups, business details.</td>
+            <td><code>BusinessController</code>, <code>BusinessService</code></td>
+        </tr>
+        <tr>
+            <td><strong>Service Booking (servicebooking)</strong></td>
+            <td>Service catalogs, order scheduling rules, proximity checks.</td>
+            <td><code>BookingController</code>, <code>BookingService</code></td>
+        </tr>
+        <tr>
+            <td><strong>Financial Ledger (wallet)</strong></td>
+            <td>Depositing balance, transactions processing, platform fee splitting.</td>
+            <td><code>WalletController</code>, <code>WalletService</code></td>
+        </tr>
+        <tr>
+            <td><strong>Real-time Chat (chat)</strong></td>
+            <td>P2P communication, media sharing, location coordinates sending.</td>
+            <td><code>ChatController</code>, <code>ChatService</code></td>
+        </tr>
+    </tbody>
+</table>
+
+<h1>4. Database Entity Relationships</h1>
+<ul>
+    <li><strong>User Accounts (<code>users</code>):</strong> Stores core credentials, phone lines, role types.</li>
+    <li><strong>Business Profile (<code>businesses</code>):</strong> Shop registry containing service coordinates, operations schedules, and checkbook states.</li>
+    <li><strong>Service Catalog (<code>services</code>):</strong> Specific service offerings linked to provider profiles.</li>
+    <li><strong>Appointments Ledger (<code>bookings</code>):</strong> Stores scheduling slots, customer target coordinates, active workflow states, and bill amounts.</li>
+    <li><strong>Accounting (<code>wallets</code>):</strong> Ledger cards mapping cash values with split payment logs.</li>
+</ul>
+
+<h1>5. Key Feature Workflows</h1>
+
+<h2>5.1. WhatsApp OTP Verification Flow</h2>
+<p>To register or log in securely, users execute the following verification steps:</p>
+<ol>
+    <li>The client app initiates a POST request to <code>/api/v1/auth/otp/send</code>.</li>
+    <li>The backend generates a cryptographically random 6-digit verification code.</li>
+    <li>The code is stored as a hashed entry in the database with a 5-minute expiration window.</li>
+    <li>The code is printed to server logs (simulating WhatsApp API dispatch).</li>
+    <li>The user inputs the code, calling <code>/api/v1/auth/otp/verify</code>. If matches, the database marks the phone line as verified.</li>
+    <li>The registration payload is submitted containing the OTP, completing user account setup.</li>
+</ol>
+
+<h2>5.2. Hyperlocal Distance Calculation</h2>
+<p>All service coordinates are verified on the server using the <strong>Haversine Formula</strong> to determine the distance in kilometers between the customer and provider:</p>
+<pre>
+double latDistance = Math.toRadians(customerLat - providerLat);
+double lonDistance = Math.toRadians(customerLng - providerLng);
+double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+        + Math.cos(Math.toRadians(customerLat)) * Math.cos(Math.toRadians(providerLat))
+        * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+double distance = R_EARTH_KM * c;
+</pre>
+<p>If the distance exceeds the provider's defined service boundary radius, booking creation throws a validation exception to ensure operators only serve local customers.</p>
+
+</body>
+</html>
