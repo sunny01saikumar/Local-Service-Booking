@@ -527,22 +527,28 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (data.data && data.data.token) {
-          localStorage.setItem('localhub_token', data.data.token);
-          const loggedUser = {
-            id: data.data.user.id,
-            email: data.data.user.email,
-            firstName: data.data.user.firstName,
-            lastName: data.data.user.lastName,
-            phone: data.data.user.phone,
-            role: role.toUpperCase()
-          };
-          setUser(loggedUser);
-          return { success: true };
+          const token = data.data.token;
+          localStorage.setItem('localhub_token', token);
+          const meRes = await fetch(`${apiUrl}/api/v1/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            const loggedUser = {
+              id: meData.data.id,
+              email: meData.data.email,
+              firstName: meData.data.firstName,
+              lastName: meData.data.lastName,
+              phone: meData.data.phone,
+              role: (meData.data.role || role || 'CUSTOMER').toUpperCase()
+            };
+            setUser(loggedUser);
+            return { success: true };
+          }
         }
-      } else {
-        const errData = await res.json();
-        return { success: false, error: errData.message || "Invalid credentials." };
       }
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData.message || "Invalid credentials." };
     } catch (err) {
       console.warn("Backend login failed, fallback to local mock login", err);
       const newUser = {
