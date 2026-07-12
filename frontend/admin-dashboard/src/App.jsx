@@ -381,15 +381,129 @@ function BookingsList() {
 }
 
 function CategoriesList() {
-  const [categories, setCategories] = useState([
-    { id: '1', code: 'ELECTRICIAN', name: 'Electrician', icon: '⚡', serviceCount: 12 },
-    { id: '2', code: 'PLUMBER', name: 'Plumber', icon: '🚰', serviceCount: 9 },
-    { id: '3', code: 'AC_REPAIR', name: 'AC Repair', icon: '❄️', serviceCount: 6 }
-  ]);
+  const [categories, setCategories] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [formData, setFormData] = useState({ name: '', code: '', description: '', displayOrder: 0 });
+  const [loading, setLoading] = useState(false);
+
+  const getCategoryIcon = (code) => {
+    switch (code) {
+      case 'ELECTRICIAN': return '⚡';
+      case 'PLUMBER': return '🚰';
+      case 'AC_REPAIR': return '❄️';
+      case 'TV_REPAIR': return '📺';
+      case 'LAPTOP_REPAIR': return '💻';
+      case 'CLEANING': return '🧹';
+      case 'PEST_CONTROL': return '🐜';
+      case 'PET_CARE': return '🐶';
+      default: return '🛠️';
+    }
+  };
+
+  const fetchCategories = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}/api/v1/service-categories?size=100`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.content) {
+          setCategories(data.data.content);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load service categories", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const handleOpen = (category = null) => {
+    if (category) {
+      setEditing(category);
+      setFormData({
+        name: category.name || '',
+        code: category.code || '',
+        description: category.description || '',
+        displayOrder: category.displayOrder || 0
+      });
+    } else {
+      setEditing(null);
+      setFormData({ name: '', code: '', description: '', displayOrder: 0 });
+    }
+    setOpen(true);
+  };
+
+  const handleClose = () => setOpen(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.code) return;
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const method = editing ? 'PUT' : 'POST';
+      const url = editing 
+        ? `${apiUrl}/api/v1/service-categories/${editing.id}`
+        : `${apiUrl}/api/v1/service-categories`;
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          code: formData.code.toUpperCase(),
+          description: formData.description,
+          displayOrder: parseInt(formData.displayOrder)
+        })
+      });
+
+      if (res.ok) {
+        alert(editing ? "Category updated successfully!" : "Category created successfully!");
+        handleClose();
+        fetchCategories();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to save category.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error contacting the server.");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}/api/v1/service-categories/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        alert("Category deleted successfully!");
+        fetchCategories();
+      } else {
+        alert("Failed to delete category.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <Container maxWidth="xl">
-      <Typography variant="h4" sx={{ mb: 3 }}>Service Categories Configurator</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">Service Categories Configurator</Typography>
+        <Button variant="contained" color="primary" onClick={() => handleOpen()}>
+          Add Category
+        </Button>
+      </Box>
+
       <TableContainer component={Paper} className="glass-panel">
         <Table>
           <TableHead>
@@ -397,21 +511,78 @@ function CategoriesList() {
               <TableCell>Icon</TableCell>
               <TableCell>Code</TableCell>
               <TableCell>Category Name</TableCell>
-              <TableCell>Active Services</TableCell>
+              <TableCell>Description</TableCell>
+              <TableCell>Display Order</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {categories.map(c => (
               <TableRow key={c.id}>
-                <TableCell fontSize="24">{c.icon}</TableCell>
-                <TableCell>{c.code}</TableCell>
-                <TableCell fontWeight="bold">{c.name}</TableCell>
-                <TableCell>{c.serviceCount} services</TableCell>
+                <TableCell style={{ fontSize: 24 }}>{getCategoryIcon(c.code)}</TableCell>
+                <TableCell><Chip label={c.code} size="small" variant="outlined" color="primary" /></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}>{c.name}</TableCell>
+                <TableCell>{c.description || 'No description provided'}</TableCell>
+                <TableCell>{c.displayOrder}</TableCell>
+                <TableCell align="right">
+                  <Button size="small" color="info" onClick={() => handleOpen(c)} sx={{ mr: 1 }}>Edit</Button>
+                  <Button size="small" color="error" onClick={() => handleDelete(c.id)}>Delete</Button>
+                </TableCell>
               </TableRow>
             ))}
+            {categories.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  {loading ? "Loading categories..." : "No categories defined. Click Add Category to create one!"}
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Add / Edit Dialog */}
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <DialogTitle>{editing ? "Edit Service Category" : "Add Service Category"}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Category Name"
+              required
+              fullWidth
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+            />
+            <TextField
+              label="Category Code (e.g. ELECTRICIAN)"
+              required
+              fullWidth
+              disabled={!!editing}
+              value={formData.code}
+              onChange={e => setFormData({ ...formData, code: e.target.value })}
+            />
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
+              rows={3}
+              value={formData.description}
+              onChange={e => setFormData({ ...formData, description: e.target.value })}
+            />
+            <TextField
+              label="Display Order (priority)"
+              type="number"
+              fullWidth
+              value={formData.displayOrder}
+              onChange={e => setFormData({ ...formData, displayOrder: e.target.value })}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary">Save</Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
     </Container>
   );
 }
