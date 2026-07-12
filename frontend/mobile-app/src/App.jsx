@@ -1956,6 +1956,31 @@ function ProviderServices() {
 function ProviderSettings({ settings, setSettings }) {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [addressQuery, setAddressQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+
+  const handleSearchAddress = async () => {
+    if (!addressQuery.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const first = data[0];
+          const newPos = { lat: parseFloat(first.lat), lng: parseFloat(first.lon) };
+          setSettings({ ...settings, latitude: newPos.lat, longitude: newPos.lng });
+        } else {
+          alert("No coordinates found for this address. Try checking the spelling.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to search address.");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   return (
     <Container maxWidth="sm">
@@ -1981,6 +2006,24 @@ function ProviderSettings({ settings, setSettings }) {
           control={<Switch checked={settings.isEmergency} onChange={e => setSettings({...settings, isEmergency: e.target.checked})} />}
           label="Emergency Service Availability (24/7)"
         />
+
+        {/* Address Search Bar */}
+        <Box>
+          <Typography variant="subtitle2" gutterBottom color="text.secondary">🔍 Search Shop Address</Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+            <TextField 
+              placeholder="e.g. Ganesh Nagar, Hyderabad" 
+              fullWidth 
+              size="small"
+              value={addressQuery}
+              onChange={e => setAddressQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearchAddress(); } }}
+            />
+            <Button variant="contained" color="primary" onClick={handleSearchAddress} disabled={searching} sx={{ minWidth: 80 }}>
+              {searching ? "..." : "Find"}
+            </Button>
+          </Box>
+        </Box>
 
         {/* Shop Location Selector Map */}
         <Box>
