@@ -72,6 +72,31 @@ function LocalHubMap({
   const mapRef = useRef(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [localMarker, setLocalMarker] = useState(center);
+  const [address, setAddress] = useState('Resolving address...');
+
+  useEffect(() => {
+    const resolveAddress = async () => {
+      if (!localMarker.lat || !localMarker.lng) return;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${localMarker.lat}&lon=${localMarker.lng}`);
+        if (res.ok) {
+          const data = await res.json();
+          const addr = data.address;
+          const displayAddr = [
+            addr.neighbourhood || addr.suburb || addr.road || '',
+            addr.city || addr.town || addr.village || '',
+            addr.state || ''
+          ].filter(Boolean).join(', ');
+          setAddress(displayAddr || data.display_name || `${parseFloat(localMarker.lat).toFixed(4)}, ${parseFloat(localMarker.lng).toFixed(4)}`);
+        } else {
+          setAddress(`Lat: ${parseFloat(localMarker.lat).toFixed(4)} | Lng: ${parseFloat(localMarker.lng).toFixed(4)}`);
+        }
+      } catch (err) {
+        setAddress(`Lat: ${parseFloat(localMarker.lat).toFixed(4)} | Lng: ${parseFloat(localMarker.lng).toFixed(4)}`);
+      }
+    };
+    resolveAddress();
+  }, [localMarker.lat, localMarker.lng]);
 
   useEffect(() => {
     setLocalMarker(center);
@@ -236,12 +261,12 @@ function LocalHubMap({
           })}
         </svg>
 
-        <Box sx={{ position: 'absolute', bottom: 10, left: 10, bgcolor: 'rgba(15,23,42,0.85)', p: 1, borderRadius: 1.5, border: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }}>
+        <Box sx={{ position: 'absolute', bottom: 10, left: 10, right: 10, bgcolor: 'rgba(15,23,42,0.85)', p: 1, borderRadius: 1.5, border: '1px solid rgba(255,255,255,0.05)', pointerEvents: 'none' }}>
           <Typography variant="caption" color="warning.main" sx={{ display: 'block', fontWeight: 'bold' }}>
-            🗺️ Active Geolocation
+            🗺️ Active Address
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Lat: {parseFloat(localMarker.lat).toFixed(4)} | Lng: {parseFloat(localMarker.lng).toFixed(4)}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'normal' }}>
+            {address}
           </Typography>
         </Box>
 
@@ -407,6 +432,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    localStorage.removeItem('localhub_user');
+    localStorage.removeItem('localhub_token');
+    localStorage.removeItem('localhub_services');
+    localStorage.removeItem('localhub_bookings');
+    localStorage.removeItem('localhub_wallet');
+    localStorage.removeItem('localhub_kyc');
+    localStorage.removeItem('localhub_biz_settings');
+    localStorage.removeItem('localhub_chats');
     fetchCategories();
   }, []);
 
@@ -528,6 +561,14 @@ export default function App() {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('localhub_user');
+    localStorage.removeItem('localhub_token');
+    localStorage.removeItem('localhub_services');
+    localStorage.removeItem('localhub_bookings');
+    localStorage.removeItem('localhub_wallet');
+    localStorage.removeItem('localhub_kyc');
+    localStorage.removeItem('localhub_biz_settings');
+    localStorage.removeItem('localhub_chats');
   };
 
   const topUpWallet = (amount) => {
