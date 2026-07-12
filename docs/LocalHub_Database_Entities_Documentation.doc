@@ -1,0 +1,319 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<title>LocalHub Database Entity Architecture Documentation</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333333;
+    margin: 1in;
+}
+h1 {
+    color: #0f766e;
+    font-size: 22pt;
+    border-bottom: 2px solid #0f766e;
+    padding-bottom: 5px;
+    margin-top: 24pt;
+    margin-bottom: 12pt;
+}
+h2 {
+    color: #0d9488;
+    font-size: 16pt;
+    margin-top: 18pt;
+    margin-bottom: 8pt;
+}
+h3 {
+    color: #14b8a6;
+    font-size: 13pt;
+    margin-top: 14pt;
+    margin-bottom: 6pt;
+}
+p {
+    font-size: 11pt;
+    margin-bottom: 8pt;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 12pt;
+    margin-bottom: 12pt;
+}
+th {
+    background-color: #0f766e;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    text-align: left;
+    font-size: 10pt;
+}
+td {
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 10pt;
+}
+tr:nth-child(even) {
+    background-color: #f0fdfa;
+}
+ul, ol {
+    margin-bottom: 10pt;
+    padding-left: 20pt;
+    font-size: 11pt;
+}
+li {
+    margin-bottom: 4pt;
+}
+code {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #f1f5f9;
+    padding: 2px 4px;
+    font-size: 9.5pt;
+}
+.cover-page {
+    text-align: center;
+    margin-top: 1.5in;
+    page-break-after: always;
+}
+.cover-title {
+    font-size: 32pt;
+    color: #0f766e;
+    font-weight: bold;
+    margin-bottom: 15pt;
+    font-family: 'Georgia', serif;
+}
+.cover-subtitle {
+    font-size: 16pt;
+    color: #475569;
+    margin-bottom: 1.5in;
+}
+.cover-meta {
+    font-size: 11pt;
+    color: #64748b;
+    line-height: 2;
+}
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+    <div class="cover-title">LocalHub</div>
+    <div class="cover-subtitle">Hyperlocal Service Booking Platform<br>Database Entity Architecture & Data Model</div>
+    <div class="cover-meta">
+        <strong>Author:</strong> Lead Architect Agent<br>
+        <strong>Engine:</strong> PostgreSQL (Neon / Production)<br>
+        <strong>Date:</strong> July 2026<br>
+        <strong>Status:</strong> Approved Schema Specification
+    </div>
+</div>
+
+<h1>1. Global Database Configurations & Entity Standards</h1>
+<p>The database tier leverages PostgreSQL as its core relational engine. To implement unified audit trails and security, all classes inherit fields from a base configuration class (<code>BaseEntity.java</code>):</p>
+<ul>
+    <li><strong>UUID Identifiers (128-bit):</strong> Rather than exposing auto-incrementing sequential integers, every entity uses a secure, randomly generated UUID as its primary key.</li>
+    <li><strong>Temporal Tracking:</strong> Columns <code>created_at</code> and <code>updated_at</code> track auditing data automatically in UTC offset format using database lifecycle listeners.</li>
+    <li><strong>Optimistic Locking:</strong> Every record maintains a <code>version</code> counter, monitored by Hibernate to detect and reject concurrent write anomalies.</li>
+    <li><strong>Logical Deletion (Soft Delete):</strong> Record deletions map to an active <code>is_deleted</code> boolean check instead of removing physical rows, protecting operational logs.</li>
+</ul>
+
+<h1>2. Entity Dictionary & Schema Definitions</h1>
+
+<h2>2.1. User Profile Directory (<code>users</code>)</h2>
+<p>Stores core authentication details, contact channels, and system state flags.</p>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Column Name</th>
+            <th>Type</th>
+            <th>Constraints</th>
+            <th>Operational Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>id</code></td>
+            <td>UUID</td>
+            <td>Primary Key, Not Null</td>
+            <td>Unique system-wide user identifier.</td>
+        </tr>
+        <tr>
+            <td><code>email</code></td>
+            <td>Varchar(255)</td>
+            <td>Unique, Not Null</td>
+            <td>Login identifier.</td>
+        </tr>
+        <tr>
+            <td><code>password_hash</code></td>
+            <td>Varchar(255)</td>
+            <td>Not Null</td>
+            <td>BCrypt hashed password credentials.</td>
+        </tr>
+        <tr>
+            <td><code>phone</code></td>
+            <td>Varchar(20)</td>
+            <td>Not Null</td>
+            <td>Mobile line used for WhatsApp OTP verification.</td>
+        </tr>
+        <tr>
+            <td><code>email_verified</code></td>
+            <td>Boolean</td>
+            <td>Default false</td>
+            <td>True if email verification check is complete.</td>
+        </tr>
+        <tr>
+            <td><code>phone_verified</code></td>
+            <td>Boolean</td>
+            <td>Default false</td>
+            <td>True if WhatsApp OTP check is complete.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>2.2. Provider Listings & Catalogs (<code>businesses</code> & <code>services</code>)</h2>
+<p>Holds operational GPS locations, service radius constraints, and catalog service offerings.</p>
+
+<h3>Table: <code>businesses</code></h3>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Column Name</th>
+            <th>Type</th>
+            <th>Constraints</th>
+            <th>Operational Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>id</code></td>
+            <td>UUID</td>
+            <td>Primary Key, Not Null</td>
+            <td>Unique business identifier.</td>
+        </tr>
+        <tr>
+            <td><code>owner_id</code></td>
+            <td>UUID</td>
+            <td>Foreign Key (users.id)</td>
+            <td>Links business to a verified SHOP_OWNER.</td>
+        </tr>
+        <tr>
+            <td><code>name</code></td>
+            <td>Varchar(255)</td>
+            <td>Not Null</td>
+            <td>Registered trade or shop name.</td>
+        </tr>
+        <tr>
+            <td><code>latitude</code></td>
+            <td>Decimal(10,8)</td>
+            <td>Not Null</td>
+            <td>Shop latitude coordinates for GPS matching.</td>
+        </tr>
+        <tr>
+            <td><code>longitude</code></td>
+            <td>Decimal(11,8)</td>
+            <td>Not Null</td>
+            <td>Shop longitude coordinates for GPS matching.</td>
+        </tr>
+        <tr>
+            <td><code>service_radius_km</code></td>
+            <td>Integer</td>
+            <td>Default 5</td>
+            <td>Range boundary for hyperlocal matching checks.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>Table: <code>services</code></h3>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Column Name</th>
+            <th>Type</th>
+            <th>Constraints</th>
+            <th>Operational Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>id</code></td>
+            <td>UUID</td>
+            <td>Primary Key, Not Null</td>
+            <td>Unique service offering identifier.</td>
+        </tr>
+        <tr>
+            <td><code>business_id</code></td>
+            <td>UUID</td>
+            <td>Foreign Key (businesses.id)</td>
+            <td>Associated trade shop mapping.</td>
+        </tr>
+        <tr>
+            <td><code>name</code></td>
+            <td>Varchar(255)</td>
+            <td>Not Null</td>
+            <td>Offering title (e.g. Bathroom Jet Cleaning).</td>
+        </tr>
+        <tr>
+            <td><code>price</code></td>
+            <td>Decimal(12,2)</td>
+            <td>Not Null</td>
+            <td>Normal listing catalog price.</td>
+        </tr>
+        <tr>
+            <td><code>discount_price</code></td>
+            <td>Decimal(12,2)</td>
+            <td>Not Null</td>
+            <td>Actual price charged during checkouts.</td>
+        </tr>
+        <tr>
+            <td><code>duration_minutes</code></td>
+            <td>Integer</td>
+            <td>Not Null</td>
+            <td>Job time slot estimate in minutes.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>2.3. Accounting & Transactions Ledger (<code>wallets</code> & <code>wallet_transactions</code>)</h2>
+<p>Monitors cash values and enforces split fee billing configurations (reserves an 8.5% platform commission and releases 91.5% net value to provider balances upon job complete triggers).</p>
+
+<h3>Table: <code>wallets</code></h3>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Column Name</th>
+            <th>Type</th>
+            <th>Constraints</th>
+            <th>Operational Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>id</code></td>
+            <td>UUID</td>
+            <td>Primary Key, Not Null</td>
+            <td>Unique card wallet ID.</td>
+        </tr>
+        <tr>
+            <td><code>user_id</code></td>
+            <td>UUID</td>
+            <td>Foreign Key (users.id)</td>
+            <td>Links wallet directly to account owner.</td>
+        </tr>
+        <tr>
+            <td><code>balance</code></td>
+            <td>Decimal(15,4)</td>
+            <td>Default 0.0000</td>
+            <td>Cash balance (expressed in INR).</td>
+        </tr>
+    </tbody>
+</table>
+
+</body>
+</html>
