@@ -382,6 +382,40 @@ export default function App() {
     localStorage.setItem('localhub_services', JSON.stringify(services));
   }, [services]);
 
+  const fetchServices = async () => {
+    const token = localStorage.getItem('localhub_token');
+    if (!token) return;
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}/api/v1/services?size=100`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.content) {
+          const apiServices = data.data.content.map(s => ({
+            id: s.id,
+            categoryId: s.categoryId ? s.categoryId.replace('00000000-0000-0000-0000-00000000000', '') : '1',
+            name: s.name,
+            price: s.price,
+            discountPrice: s.discountPrice,
+            duration: s.durationMinutes || s.duration || 60,
+            desc: s.description || s.desc || ''
+          }));
+          setServices(apiServices);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch services from backend, using local workspace", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchServices();
+    }
+  }, [user]);
+
   const addServiceOffering = async (serviceData) => {
     const newService = {
       id: 's-' + Math.random().toString(36).substring(2, 7),
