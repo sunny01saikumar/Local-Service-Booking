@@ -44,6 +44,12 @@ public class LocalHubTests {
     @Autowired
     private BusinessLocationRepository locationRepository;
 
+    @Autowired
+    private OtpVerificationRepository otpRepository;
+
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     @Test
     @Transactional
     public void testAuthAndBookingFlow() {
@@ -61,9 +67,18 @@ public class LocalHubTests {
             roleRepository.save(r);
         }
 
+        // Manually seed verified OTP for customer
+        OtpVerification otpCust = new OtpVerification();
+        otpCust.setPhone("+919876543210");
+        otpCust.setPurpose("REGISTER");
+        otpCust.setOtpHash("MOCK_HASH");
+        otpCust.setExpiresAt(OffsetDateTime.now().plusMinutes(5));
+        otpCust.setVerifiedAt(OffsetDateTime.now());
+        otpRepository.save(otpCust);
+
         // 1. Register customer
         AuthDtos.RegisterRequest regCust = new AuthDtos.RegisterRequest(
-                "Test", "Customer", "test_cust@localhub.test", "password123", "+919876543210", "CUSTOMER"
+                "Test", "Customer", "test_cust@localhub.test", "password123", "+919876543210", "CUSTOMER", "123456"
         );
         AuthDtos.AuthResponse respCust = authService.register(regCust);
         Assertions.assertNotNull(respCust.token());
@@ -71,9 +86,18 @@ public class LocalHubTests {
 
         User customer = userRepository.findByEmail("test_cust@localhub.test").orElseThrow();
 
+        // Manually seed verified OTP for provider
+        OtpVerification otpProv = new OtpVerification();
+        otpProv.setPhone("+919876543211");
+        otpProv.setPurpose("REGISTER");
+        otpProv.setOtpHash("MOCK_HASH");
+        otpProv.setExpiresAt(OffsetDateTime.now().plusMinutes(5));
+        otpProv.setVerifiedAt(OffsetDateTime.now());
+        otpRepository.save(otpProv);
+
         // 2. Register provider
         AuthDtos.RegisterRequest regProv = new AuthDtos.RegisterRequest(
-                "Ramesh", "Provider", "ramesh@localhub.test", "password123", "+919876543211", "SHOP_OWNER"
+                "Ramesh", "Provider", "ramesh@localhub.test", "password123", "+919876543211", "SHOP_OWNER", "123456"
         );
         AuthDtos.AuthResponse respProv = authService.register(regProv);
         Assertions.assertEquals("SHOP_OWNER", respProv.role());
@@ -135,6 +159,11 @@ public class LocalHubTests {
         AuthDtos.OtpRequest otpReq = new AuthDtos.OtpRequest("test_cust@localhub.test", "LOGIN");
         String otpSent = authService.generateOtp(otpReq);
         Assertions.assertNotNull(otpSent);
+
+        // Manually overwrite the random hash with the hash of "123456" for verification test
+        OtpVerification otpLogin = otpRepository.findFirstByEmailAndPurposeOrderByCreatedAtDesc("test_cust@localhub.test", "LOGIN").orElseThrow();
+        otpLogin.setOtpHash(passwordEncoder.encode("123456"));
+        otpRepository.save(otpLogin);
 
         AuthDtos.OtpVerifyRequest verifyReq = new AuthDtos.OtpVerifyRequest("test_cust@localhub.test", "LOGIN", "123456");
         boolean verified = authService.verifyOtp(verifyReq);
