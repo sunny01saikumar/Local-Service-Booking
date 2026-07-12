@@ -141,6 +141,11 @@ public class AuthService {
         verify.setExpiresAt(OffsetDateTime.now().plusMinutes(5));
         otps.save(verify);
 
+        // If target is a phone number, attempt to send a real SMS via Twilio
+        if (!target.contains("@")) {
+            sendTwilioSms(target, otp);
+        }
+
         // Log to console simulating SMS/WhatsApp Cloud API notification integration
         System.out.println("==================================================");
         System.out.println("SIMULATED OTP DISPATCH via WhatsApp/SMS to: " + target);
@@ -215,5 +220,60 @@ public class AuthService {
         if (update.avatarUrl() != null) user.setAvatarUrl(update.avatarUrl());
 
         return users.save(user);
+    }
+
+    private void sendTwilioSms(String toPhone, String code) {
+        String accountSid = System.getenv("TWILIO_ACCOUNT_SID");
+        String authToken = System.getenv("TWILIO_AUTH_TOKEN");
+        String fromPhone = System.getenv("TWILIO_PHONE_NUMBER");
+
+        if (accountSid == null || authToken == null || fromPhone == null) {
+            System.out.println("Twilio credentials not configured in environment variables. Skipping real SMS dispatch.");
+            return;
+        }
+
+        try {
+            String url = "https://api.twilio.com/2010-04-01/Accounts/" + accountSid + "/Messages.json";
+            String formattedTo = toPhone.trim();
+            if (!formattedTo.startsWith("+")) {
+                if (formattedTo.length() == 10) {
+                    formattedTo = "+91" + formattedTo;
+                } else {
+                    formattedTo = "+" + formattedTo;
+                }
+            }
+
+            java.net.URL urlObj = new java.net.URL(url);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) urlObj.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+
+            String auth = accountSid + ":" + authToken;
+            String authHeader = "Basic " + java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+            conn.setRequestProperty("Authorization", authHeader);
+            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+            String postData = "To=" + java.net.URLEncoder.encode(formattedTo, "UTF-8")
+                    + "&From=" + java.net.URLEncoder.encode(fromPhone, "UTF-8")
+                    + "&Body=" + java.net.URLEncoder.encode("Your LocalHub verification code is: " + code, "UTF-8");
+
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                os.write(postData.getBytes("UTF-8"));
+            }
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode >= 200 && responseCode < 300) {
+                System.out.println("Twilio SMS sent successfully to: " + formattedTo);
+            } else {
+                try (java.io.InputStream es = conn.getErrorStream()) {
+                    if (es != null) {
+                        String errorResponse = new String(es.readAllBytes(), "UTF-8");
+                        System.err.println("Twilio API Error Response: " + errorResponse);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to send SMS via Twilio: " + e.getMessage());
+        }
     }
 }
