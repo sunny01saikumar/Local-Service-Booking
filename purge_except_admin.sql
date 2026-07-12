@@ -25,7 +25,7 @@ DELETE FROM products;
 
 -- 5. Purge Service Offerings & Availability
 DELETE FROM service_availability;
-DELETE FROM services;
+    DELETE FROM services;
 
 -- 6. Purge Provider Profiles & Locations
 DELETE FROM business_locations;

@@ -675,8 +675,11 @@ function Register() {
         body: JSON.stringify({ target: formData.phone, purpose: 'REGISTER' })
       });
       if (res.ok) {
+        const result = await res.json();
+        const code = result.data;
         setOtpSent(true);
-        alert("WhatsApp OTP sent successfully! Check your Render dashboard logs for the generated code.");
+        setOtp(code);
+        alert(`[OTP Dispatch] Received Code: ${code}\n\n(This code has been automatically filled in for testing!)`);
       } else {
         const data = await res.json();
         setErrorMsg(data.message || "Failed to send OTP.");

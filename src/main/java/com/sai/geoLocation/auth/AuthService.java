@@ -148,7 +148,7 @@ public class AuthService {
         System.out.println("OTP Code: " + otp);
         System.out.println("==================================================");
 
-        return "OTP sent successfully to " + target;
+        return otp;
     }
 
     @Transactional
