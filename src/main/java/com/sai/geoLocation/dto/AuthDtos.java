@@ -12,7 +12,8 @@ public final class AuthDtos {
         @Email @NotBlank String email,
         @NotBlank String password,
         String phone,
-        String role // CUSTOMER or SHOP_OWNER
+        String role, // CUSTOMER or SHOP_OWNER
+        @NotBlank String otp
     ) {}
 
     public record LoginRequest(

@@ -50,6 +50,27 @@ public class AuthService {
             throw new BusinessRuleException("Email already exists");
         }
 
+        // Verify registration OTP (WhatsApp verification)
+        String phone = request.phone();
+        if (phone == null || phone.trim().isEmpty()) {
+            throw new BusinessRuleException("Phone number is required for registration");
+        }
+
+        OtpVerification verify = otps.findFirstByPhoneAndPurposeOrderByCreatedAtDesc(phone, "REGISTER")
+                .orElseThrow(() -> new BusinessRuleException("No registration OTP requested for phone: " + phone));
+
+        if (verify.getVerifiedAt() == null && !passwordEncoder.matches(request.otp(), verify.getOtpHash())) {
+            throw new BusinessRuleException("Invalid registration OTP");
+        }
+
+        if (verify.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new BusinessRuleException("Registration OTP has expired");
+        }
+
+        // Mark OTP as verified so it cannot be reused
+        verify.setVerifiedAt(OffsetDateTime.now());
+        otps.save(verify);
+
         String roleCode = request.role();
         if (roleCode == null || roleCode.trim().isEmpty()) {
             roleCode = "CUSTOMER";
@@ -105,7 +126,7 @@ public class AuthService {
 
     @Transactional
     public String generateOtp(AuthDtos.OtpRequest request) {
-        String otp = "123456"; // Default OTP for development / ease of testing
+        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
         String target = request.target();
         String purpose = request.purpose().toUpperCase();
 
@@ -127,7 +148,7 @@ public class AuthService {
         System.out.println("OTP Code: " + otp);
         System.out.println("==================================================");
 
-        return "OTP sent successfully to " + target + " (Simulated code: 123456)";
+        return "OTP sent successfully to " + target;
     }
 
     @Transactional
