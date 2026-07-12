@@ -354,6 +354,8 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_SERVICES;
   });
 
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+
   useEffect(() => {
     localStorage.setItem('localhub_user', user ? JSON.stringify(user) : '');
   }, [user]);
@@ -381,6 +383,32 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('localhub_services', JSON.stringify(services));
   }, [services]);
+
+  const fetchCategories = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}/api/v1/service-categories?size=100`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.content) {
+          const apiCategories = data.data.content.map(c => ({
+            id: c.id,
+            code: c.code,
+            name: c.name,
+            icon: c.icon || '🛠️',
+            desc: c.description || ''
+          }));
+          setCategories(apiCategories);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch service categories from backend, using default list", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const fetchServices = async () => {
     const token = localStorage.getItem('localhub_token');
@@ -563,7 +591,7 @@ export default function App() {
       <AuthContext.Provider value={{
         user, loginUser, logout, bookings, addBooking, updateBookingStatus,
         wallet, topUpWallet, kycDocs, setKycDocs, businessSettings, setBusinessSettings,
-        chats, addChatMessage, categories: INITIAL_CATEGORIES, services, addServiceOffering,
+        chats, addChatMessage, categories, services, addServiceOffering,
         currentLocation, setCurrentLocation
       }}>
         <BrowserRouter>
