@@ -483,17 +483,47 @@ export default function App() {
     alert("Service offering uploaded successfully to your shop profile!");
   };
 
-  const loginUser = (email, role) => {
-    const newUser = {
-      id: UUID(),
-      email,
-      firstName: email.split('@')[0],
-      lastName: 'User',
-      phone: '+919000000022',
-      role: role.toUpperCase(),
-      referralCode: 'LH-' + Math.random().toString(36).substring(2, 7).toUpperCase()
-    };
-    setUser(newUser);
+  const loginUser = async (email, password, role) => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.token) {
+          localStorage.setItem('localhub_token', data.data.token);
+          const loggedUser = {
+            id: data.data.user.id,
+            email: data.data.user.email,
+            firstName: data.data.user.firstName,
+            lastName: data.data.user.lastName,
+            phone: data.data.user.phone,
+            role: role.toUpperCase()
+          };
+          setUser(loggedUser);
+          return { success: true };
+        }
+      } else {
+        const errData = await res.json();
+        return { success: false, error: errData.message || "Invalid credentials." };
+      }
+    } catch (err) {
+      console.warn("Backend login failed, fallback to local mock login", err);
+      const newUser = {
+        id: UUID(),
+        email,
+        firstName: email.split('@')[0],
+        lastName: 'User',
+        phone: '+919000000022',
+        role: role.toUpperCase(),
+        referralCode: 'LH-' + Math.random().toString(36).substring(2, 7).toUpperCase()
+      };
+      setUser(newUser);
+      return { success: true, warning: "Sandbox local session started." };
+    }
   };
 
   const logout = () => {
@@ -663,12 +693,16 @@ function Login() {
     else setRole('CUSTOMER');
   }, []);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!email) return;
-    loginUser(email, role);
-    if (role === 'CUSTOMER') navigate('/customer/home');
-    else navigate('/provider/home');
+    if (!email || !password) return;
+    const res = await loginUser(email, password, role);
+    if (res.success) {
+      if (role === 'CUSTOMER') navigate('/customer/home');
+      else navigate('/provider/home');
+    } else {
+      alert(res.error || "Login failed. Check your password.");
+    }
   };
 
   return (
@@ -814,7 +848,7 @@ function Register() {
         if (data.data && data.data.token) {
           localStorage.setItem('localhub_token', data.data.token);
         }
-        loginUser(formData.email, role);
+        loginUser(formData.email, formData.password, role);
         if (role === 'CUSTOMER') navigate('/customer/home');
         else navigate('/provider/home');
       } else {
@@ -822,7 +856,7 @@ function Register() {
       }
     } catch (err) {
       console.warn("Backend unavailable, registering user in local sandbox", err);
-      loginUser(formData.email, role);
+      loginUser(formData.email, formData.password, role);
       if (role === 'CUSTOMER') navigate('/customer/home');
       else navigate('/provider/home');
     }
