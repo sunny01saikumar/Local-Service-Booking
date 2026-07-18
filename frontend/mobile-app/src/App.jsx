@@ -448,20 +448,23 @@ export default function App() {
     if (!token) return;
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-      const res = await fetch(`${apiUrl}/api/v1/services?size=100`, {
+      const res = await fetch(`${apiUrl}/api/v1/services/search?lat=${currentLocation.lat}&lng=${currentLocation.lng}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.data && data.data.content) {
-          const apiServices = data.data.content.map(s => ({
-            id: s.id,
+        if (data.data) {
+          const apiServices = data.data.map(s => ({
+            id: s.serviceId,
             categoryId: s.categoryId ? s.categoryId.replace('00000000-0000-0000-0000-00000000000', '') : '1',
-            name: s.name,
+            name: s.serviceName,
             price: s.price,
             discountPrice: s.discountPrice,
-            duration: s.durationMinutes || s.duration || 60,
-            desc: s.description || s.desc || ''
+            duration: s.durationMinutes || 60,
+            desc: s.description || '',
+            distance: s.distanceKm,
+            shopName: s.shopName,
+            shopAddress: s.shopAddress
           }));
           setServices(apiServices);
         }
@@ -475,7 +478,7 @@ export default function App() {
     if (user) {
       fetchServices();
     }
-  }, [user]);
+  }, [user, currentLocation]);
 
   const addServiceOffering = async (serviceData) => {
     const newService = {
@@ -1111,6 +1114,11 @@ function CustomerHome() {
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     {s.desc}
                   </Typography>
+                  {s.shopName && (
+                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5, fontWeight: 'bold' }}>
+                      🏪 {s.shopName} ({s.distance ? `${s.distance.toFixed(1)} km away` : 'nearby'})
+                    </Typography>
+                  )}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
                     <Typography variant="h6" color="primary">₹{s.discountPrice}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ textDecoration: 'line-through' }}>₹{s.price}</Typography>
