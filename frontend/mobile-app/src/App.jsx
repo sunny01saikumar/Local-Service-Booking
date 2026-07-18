@@ -715,7 +715,7 @@ function HomeSelector() {
             <Button variant="outlined" color="secondary" size="large" onClick={() => navigate('/login?role=provider')}>
               Access Provider App
             </Button>
-            <Button variant="text" size="small" component="a" href="https://local-service-booking-2de9.vercel.app" target="_blank" color="warning" startIcon={<Assessment />}>
+            <Button variant="text" size="small" component="a" href="https://admin.localhub.ink" target="_blank" color="warning" startIcon={<Assessment />}>
               Open Admin Panel (Cloud Dashboard)
             </Button>
           </Box>
