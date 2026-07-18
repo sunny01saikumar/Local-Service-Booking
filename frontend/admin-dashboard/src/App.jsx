@@ -36,17 +36,41 @@ const theme = createTheme({
 const drawerWidth = 260;
 
 export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem('localhub_admin_token') || null);
+  const [adminUser, setAdminUser] = useState(() => {
+    const saved = localStorage.getItem('localhub_admin_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleLogin = (jwt, userObj) => {
+    localStorage.setItem('localhub_admin_token', jwt);
+    localStorage.setItem('localhub_admin_user', JSON.stringify(userObj));
+    setToken(jwt);
+    setAdminUser(userObj);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('localhub_admin_token');
+    localStorage.removeItem('localhub_admin_user');
+    setToken(null);
+    setAdminUser(null);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
-        <Layout />
+        {token && adminUser ? (
+          <Layout user={adminUser} onLogout={handleLogout} />
+        ) : (
+          <AdminLogin onLogin={handleLogin} />
+        )}
       </BrowserRouter>
     </ThemeProvider>
   );
 }
 
-function Layout() {
+function Layout({ user, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -67,7 +91,7 @@ function Layout() {
           </Typography>
         </Toolbar>
         <Divider sx={{ opacity: 0.1 }} />
-        <List sx={{ px: 2, mt: 2 }}>
+        <List sx={{ px: 2, mt: 2, flexGrow: 1 }}>
           <ListItem disablePadding sx={{ mb: 1 }}>
             <ListItemButton
               component={Link} to="/"
@@ -134,6 +158,19 @@ function Layout() {
             </ListItemButton>
           </ListItem>
         </List>
+
+        <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+            <Avatar sx={{ bgcolor: '#6366f1' }}>{user.firstName ? user.firstName[0].toUpperCase() : 'A'}</Avatar>
+            <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+              <Typography variant="body2" fontWeight="bold" noWrap>{user.firstName || 'Admin'} {user.lastName || ''}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Administrator</Typography>
+            </Box>
+          </Box>
+          <Button variant="outlined" color="error" fullWidth size="small" onClick={onLogout}>
+            Logout
+          </Button>
+        </Box>
       </Drawer>
 
       {/* Main Content Area */}
@@ -654,5 +691,113 @@ function BannersManager() {
         </Table>
       </TableContainer>
     </Container>
+  );
+}
+
+function AdminLogin({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.token) {
+          const token = data.data.token;
+          
+          // Verify that role is ADMIN
+          const role = (data.data.role || '').toUpperCase();
+          if (role !== 'ADMIN') {
+            setErrorMsg('Access Denied: You do not have administrator permissions.');
+            setLoading(false);
+            return;
+          }
+
+          // Fetch complete profile from /me
+          const meRes = await fetch(`${apiUrl}/api/v1/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            onLogin(token, {
+              id: meData.data.id,
+              email: meData.data.email,
+              firstName: meData.data.firstName,
+              lastName: meData.data.lastName,
+              role: 'ADMIN'
+            });
+          } else {
+            setErrorMsg('Failed to retrieve administrator profile.');
+          }
+        } else {
+          setErrorMsg('Invalid authentication token returned.');
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setErrorMsg(errData.message || 'Invalid email or password.');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to connect to authentication server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3, bgcolor: '#0b0f19' }}>
+      <Container maxWidth="xs">
+        <Paper className="glass-panel" sx={{ p: 4, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+          <Typography variant="h4" align="center" gutterBottom sx={{ fontFamily: 'Outfit', fontWeight: 800, color: '#6366f1' }}>
+            🛡️ Admin Login
+          </Typography>
+          <Typography variant="body2" color="text.secondary" align="center" gutterBottom sx={{ mb: 3 }}>
+            Sign in to manage the LocalHub ecosystem
+          </Typography>
+
+          {errorMsg && (
+            <Paper variant="outlined" sx={{ p: 1.5, mb: 3, bgcolor: 'rgba(239, 68, 68, 0.1)', borderColor: 'error.main' }}>
+              <Typography color="error.main" variant="body2" align="center">{errorMsg}</Typography>
+            </Paper>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <TextField
+              label="Email Address"
+              type="email"
+              fullWidth
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            <TextField
+              label="Password"
+              type="password"
+              fullWidth
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+            <Button type="submit" variant="contained" color="primary" fullWidth size="large" disabled={loading}>
+              {loading ? 'Authenticating...' : 'Sign In as Admin'}
+            </Button>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 }
